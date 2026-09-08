@@ -1,0 +1,6 @@
+---
+# Copy this file to group_vars/gitlab_hosts/vault.yml, replace the values, then
+# encrypt it with ansible-vault.
+gitlab_initial_root_password_vault: replace-with-a-long-unique-password
+gitlab_api_token_vault: ""
+gitlab_runner_token_vault: ""

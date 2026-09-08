@@ -1,0 +1,26 @@
+---
+gitlab_external_url: http://192.168.57.10:8929
+gitlab_http_port: 8929
+gitlab_ssh_port: 2224
+gitlab_version: 17.11.7-ce.0
+gitlab_runner_version: v17.11.1
+gitlab_data_root: /srv/code-keeper
+gitlab_docker_network: code-keeper
+gitlab_group_name: Code Keeper
+gitlab_group_path: code-keeper
+gitlab_projects:
+  - inventory
+  - billing
+  - api-gateway
+  - infrastructure
+gitlab_runner_name: code-keeper-docker
+gitlab_runner_tags: docker-local
+gitlab_runner_concurrent: 2
+gitlab_require_two_factor_authentication: false
+gitlab_minimum_password_length: 8
+
+# Define these in an encrypted vault file or environment variables. Do not put
+# real tokens in this repository.
+gitlab_initial_root_password: "{{ lookup('ansible.builtin.env', 'GITLAB_INITIAL_ROOT_PASSWORD', default=gitlab_initial_root_password_vault | default('')) }}"
+gitlab_api_token: "{{ lookup('ansible.builtin.env', 'GITLAB_API_TOKEN', default=gitlab_api_token_vault | default('')) }}"
+gitlab_runner_token: "{{ lookup('ansible.builtin.env', 'GITLAB_RUNNER_TOKEN', default=gitlab_runner_token_vault | default('')) }}"

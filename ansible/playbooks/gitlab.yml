@@ -1,0 +1,10 @@
+---
+- name: Deploy local GitLab and GitLab Runner
+  hosts: gitlab_hosts
+  become: true
+  gather_facts: true
+  roles:
+    - docker
+    - gitlab
+    - gitlab_runner
+    - gitlab_configuration

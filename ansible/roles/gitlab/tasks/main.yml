@@ -1,0 +1,65 @@
+---
+- name: Validate the initial root password is available
+  ansible.builtin.assert:
+    that:
+      - gitlab_initial_root_password | length >= gitlab_minimum_password_length
+    fail_msg: Set GITLAB_INITIAL_ROOT_PASSWORD or gitlab_initial_root_password_vault before provisioning.
+  no_log: true
+
+- name: Create persistent GitLab directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ gitlab_data_root }}/gitlab/config"
+    - "{{ gitlab_data_root }}/gitlab/logs"
+    - "{{ gitlab_data_root }}/gitlab/data"
+
+- name: Create the GitLab Docker network
+  community.docker.docker_network:
+    name: "{{ gitlab_docker_network }}"
+    state: present
+
+- name: Start GitLab CE
+  community.docker.docker_container:
+    name: gitlab
+    image: "gitlab/gitlab-ce:{{ gitlab_version }}"
+    pull: missing
+    restart_policy: unless-stopped
+    env:
+      GITLAB_ROOT_PASSWORD: "{{ gitlab_initial_root_password }}"
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url '{{ gitlab_external_url }}'
+        nginx['listen_port'] = {{ gitlab_http_port }}
+        nginx['listen_https'] = false
+        letsencrypt['enable'] = false
+        gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD']
+        gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }}
+    published_ports:
+      - "{{ gitlab_http_port }}:{{ gitlab_http_port }}"
+      - "{{ gitlab_ssh_port }}:22"
+    volumes:
+      - "{{ gitlab_data_root }}/gitlab/config:/etc/gitlab"
+      - "{{ gitlab_data_root }}/gitlab/logs:/var/log/gitlab"
+      - "{{ gitlab_data_root }}/gitlab/data:/var/opt/gitlab"
+    networks:
+      - name: "{{ gitlab_docker_network }}"
+        aliases:
+          - gitlab
+    memory: 4g
+    shm_size: 256m
+    state: started
+  no_log: true
+
+- name: Wait for GitLab to become ready
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/users/sign_in"
+    status_code: 200
+    return_content: false
+  register: gitlab_readiness
+  retries: 60
+  delay: 10
+  until: gitlab_readiness.status == 200

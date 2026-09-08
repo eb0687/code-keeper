@@ -1,0 +1,4 @@
+.vagrant/
+.ansible/
+.vault-password
+ansible/inventories/vagrant/group_vars/gitlab_hosts/vault.yml
