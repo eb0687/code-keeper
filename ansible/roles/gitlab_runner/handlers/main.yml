@@ -1,0 +1,6 @@
+---
+- name: Restart GitLab Runner
+  community.docker.docker_container:
+    name: gitlab-runner
+    state: started
+    restart: true

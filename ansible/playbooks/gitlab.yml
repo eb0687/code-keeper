@@ -6,5 +6,5 @@
   roles:
     - docker
     - gitlab
-    - gitlab_runner
     - gitlab_configuration
+    - gitlab_runner

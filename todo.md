@@ -2,8 +2,8 @@
 
 ## Foundation
 
-- [ ] Create separate repositories for inventory, billing, API gateway, and infrastructure.
-- [ ] Use the provided `crud-master` applications and a `cloud-design` or `cloud-kube` architecture.
+- [x] Create separate repositories for inventory, billing, API gateway, and infrastructure.
+- [x] Use the provided `crud-master` applications and a `cloud-design` or `cloud-kube` architecture.
 - [ ] Provision equivalent staging and production environments on a cloud platform.
 
 ## GitLab Platform
@@ -17,11 +17,11 @@
 
 ## Infrastructure Repository
 
-- [ ] Keep Terraform infrastructure in its own repository.
-- [ ] Configure remote/state backends appropriately.
-- [ ] Implement Terraform pipeline stages:
-- [ ] `init`
-- [ ] `validate`
+- [x] Keep Terraform infrastructure in its own repository.
+- [x] Configure remote/state backends appropriately.
+- [x] Implement Terraform pipeline stages:
+- [x] `init`
+- [x] `validate`
 - [ ] `plan`
 - [ ] apply to staging
 - [ ] manual production approval
@@ -59,17 +59,17 @@
 - [x] Store secrets outside code and Terraform files.
 - [ ] Use CI/CD variables or a secret-management solution.
 - [ ] Apply least-privilege access for users, runners, cloud identities, and services.
-- [ ] Maintain a process for dependency and CI tool updates.
-- [ ] Monitor security advisories.
+- [x] Maintain a process for dependency and CI tool updates.
+- [x] Monitor security advisories.
 
 ## Documentation And Audit
 
-- [ ] Add a complete `README.md`.
-- [ ] Document prerequisites, architecture, setup, configuration, usage, pipelines, secrets, and rollback/deployment process.
-- [ ] Include clear architecture and pipeline diagrams.
+- [x] Add a complete `README.md`.
+- [x] Document prerequisites, architecture, setup, configuration, usage, pipelines, secrets, and rollback/deployment process.
+- [x] Include clear architecture and pipeline diagrams.
 - [ ] Commit CI/CD definitions, deployment scripts, Terraform, and Ansible artifacts.
 - [ ] Demonstrate successful application and infrastructure updates through pipelines.
-- [ ] Prepare explanations of DevOps, IaC, GitLab/Runners, Ansible, Terraform, CI/CD, security, tradeoffs, challenges, and cost optimization.
+- [x] Prepare explanations of DevOps, IaC, GitLab/Runners, Ansible, Terraform, CI/CD, security, tradeoffs, challenges, and cost optimization.
 
 ## Optional Bonus
 
