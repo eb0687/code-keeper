@@ -22,10 +22,10 @@
 - [x] Implement Terraform pipeline stages:
 - [x] `init`
 - [x] `validate`
-- [ ] `plan`
-- [ ] apply to staging
-- [ ] manual production approval
-- [ ] apply to production
+- [x] `plan`
+- [x] apply to staging
+- [x] manual production approval
+- [x] apply to production
 - [ ] Verify staging and production have comparable resources and services.
 
 ## Application CI: Each Repository

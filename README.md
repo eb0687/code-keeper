@@ -132,11 +132,11 @@ variables are supplied. Do not commit their values:
 | Variable                                                          | Used by                                                          |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `AWS_REGION`, AWS deployment identity                             | Infrastructure and application projects                          |
-| `TF_STATE_BUCKET`, `TF_SECRET_FILE`                               | Infrastructure project                                           |
+| `TF_STATE_BUCKET`, `TF_STAGING_VARS_FILE`, `TF_PRODUCTION_VARS_FILE`, `TF_SECRET_FILE` | Infrastructure project |
 | `ECR_REGISTRY`                                                    | Application projects                                             |
 | `STAGING_IMAGE_REPOSITORY`, `PRODUCTION_IMAGE_REPOSITORY`         | Each application project                                         |
-| `STAGING_EKS_CLUSTER`, `PRODUCTION_EKS_CLUSTER`                   | Application projects                                             |
-| `STAGING_KUBERNETES_NAMESPACE`, `PRODUCTION_KUBERNETES_NAMESPACE` | Application projects                                             |
+| `STAGING_EKS_CLUSTER`, `PRODUCTION_EKS_CLUSTER`                   | Infrastructure and application projects                          |
+| `STAGING_KUBERNETES_NAMESPACE`, `PRODUCTION_KUBERNETES_NAMESPACE` | Infrastructure and application projects                          |
 | `CLOUD_DEPLOY_ENABLED`                                            | Infrastructure project, set to `true` only for a real deployment |
 
 ## Audit

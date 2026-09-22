@@ -22,10 +22,10 @@ terraform fmt -check -recursive
 terraform validate
 ```
 
-For a real cloud audit, show separate staging and production state keys,
-Terraform plans, the staging apply job, manual production approval, and the
-production apply job. Do not expose AWS credentials or the Terraform secret
-file.
+For a real cloud audit, show the protected-main infrastructure pipeline using
+separate staging and production state keys, manual staging plan/apply jobs,
+the production plan, manual production approval, and the production apply job.
+Do not expose AWS credentials or the Terraform variable and secret files.
 
 ## Application Evidence
 
