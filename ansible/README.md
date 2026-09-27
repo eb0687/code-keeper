@@ -76,7 +76,9 @@ The second provision:
 - create the `code-keeper` group and its four projects,
 - protects their `main` branches
 - creates and registers both Docker runners and applies their tags and
-  protected branch settings.
+  protected branch settings
+- rejects direct pushes to `main` and requires a successful pipeline before
+  merging.
 
 ## Runners
 
