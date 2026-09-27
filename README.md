@@ -93,3 +93,12 @@ Group variables are useful for values shared by all application projects.
 | `STAGING_EKS_CLUSTER`, `PRODUCTION_EKS_CLUSTER`                                        | Infrastructure and application projects                                           |
 | `STAGING_KUBERNETES_NAMESPACE`, `PRODUCTION_KUBERNETES_NAMESPACE`                      | Infrastructure and application projects                                           |
 | `CLOUD_DEPLOY_ENABLED`                                                                 | Infrastructure and application projects, set to `true` only for a real deployment |
+
+### Cloud Variable Usage
+
+- `build`, `test`, and `scan`: do not require AWS variables.
+- Infrastructure `plan` and `apply`: use `AWS_REGION`, `TF_STATE_BUCKET`, `TF_*_VARS_FILE`, and `TF_SECRET_FILE`.
+- Infrastructure bootstrap: uses the EKS cluster and Kubernetes namespace variables.
+- Application `containerize`: uses AWS credentials, `ECR_REGISTRY`, and the staging image repository.
+- Application deployments: use the EKS cluster, namespace, and production image repository variables.
+- `CLOUD_DEPLOY_ENABLED=false`: keeps all AWS-dependent jobs disabled.
