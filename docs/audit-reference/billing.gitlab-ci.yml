@@ -1,0 +1,142 @@
+stages:
+  - build
+  - test
+  - scan
+  - containerize
+  - deploy_staging
+  - approve_production
+  - deploy_production
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+build:
+  stage: build
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements.txt
+    - python -m compileall app server.py
+
+test:
+  stage: test
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements-dev.txt
+    - pytest -q
+
+integration_test:
+  stage: test
+  image: python:3.12-slim
+  tags: [docker-ci]
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+    - name: rabbitmq:3-management-alpine
+      alias: rabbitmq
+  variables:
+    POSTGRES_USER: billing
+    POSTGRES_PASSWORD: billing-password
+    POSTGRES_DB: billing
+    BILLING_DB_HOST: postgres
+    BILLING_DB_PORT: "5432"
+    BILLING_DB_USER: billing
+    BILLING_DB_PASSWORD: billing-password
+    BILLING_DB_NAME: billing
+    RABBITMQ_DEFAULT_USER: ci
+    RABBITMQ_DEFAULT_PASS: ci-password
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: "5672"
+    RABBITMQ_USER: ci
+    RABBITMQ_PASSWORD: ci-password
+    RABBITMQ_QUEUE: billing_queue
+  script:
+    - python -m pip install --no-cache-dir -r requirements.txt
+    - python server.py &
+    - sleep 10
+    - >-
+      python -c 'import json, pika;
+      connection=pika.BlockingConnection(pika.ConnectionParameters("rabbitmq", 5672, "/", pika.PlainCredentials("ci", "ci-password")));
+      channel=connection.channel(); channel.queue_declare(queue="billing_queue", durable=True);
+      channel.basic_publish(exchange="", routing_key="billing_queue", body=json.dumps({"user_id":1,"number_of_items":2,"total_amount":10})); connection.close()'
+    - sleep 5
+    - >-
+      python -c 'from sqlalchemy import create_engine, text;
+      engine=create_engine("postgresql://billing:billing-password@postgres:5432/billing");
+      assert engine.connect().execute(text("SELECT count(*) FROM orders")).scalar() == 1'
+
+scan:
+  stage: scan
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements-dev.txt
+    - bandit -q -r app server.py
+    - pip-audit -r requirements.txt
+
+containerize:
+  stage: containerize
+  image: python:3.12-alpine
+  tags: [docker-local]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli docker-cli
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  script:
+    - export IMAGE="$STAGING_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
+    - docker build --pull --tag "$IMAGE" .
+    - docker push "$IMAGE"
+    - printf 'STAGING_IMAGE=%s\n' "$IMAGE" > image.env
+  artifacts:
+    reports:
+      dotenv: image.env
+
+deploy_staging:
+  stage: deploy_staging
+  image: alpine:3.21
+  tags: [docker-local]
+  needs: [containerize]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli kubectl
+    - aws eks update-kubeconfig --region "$AWS_REGION" --name "$STAGING_EKS_CLUSTER"
+  script:
+    - kubectl --namespace "$STAGING_KUBERNETES_NAMESPACE" set image statefulset/billing-app billing-app="$STAGING_IMAGE"
+    - kubectl --namespace "$STAGING_KUBERNETES_NAMESPACE" rollout status statefulset/billing-app --timeout=5m
+  environment:
+    name: staging
+
+approve_production:
+  stage: approve_production
+  tags: [docker-local]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  script: ["true"]
+  when: manual
+  allow_failure: false
+
+deploy_production:
+  stage: deploy_production
+  image: python:3.12-alpine
+  tags: [docker-local]
+  needs: [containerize, approve_production]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli docker-cli kubectl
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+    - aws eks update-kubeconfig --region "$AWS_REGION" --name "$PRODUCTION_EKS_CLUSTER"
+  script:
+    - export PRODUCTION_IMAGE="$PRODUCTION_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
+    - docker pull "$STAGING_IMAGE"
+    - docker tag "$STAGING_IMAGE" "$PRODUCTION_IMAGE"
+    - docker push "$PRODUCTION_IMAGE"
+    - kubectl --namespace "$PRODUCTION_KUBERNETES_NAMESPACE" set image statefulset/billing-app billing-app="$PRODUCTION_IMAGE"
+    - kubectl --namespace "$PRODUCTION_KUBERNETES_NAMESPACE" rollout status statefulset/billing-app --timeout=5m
+  environment:
+    name: production

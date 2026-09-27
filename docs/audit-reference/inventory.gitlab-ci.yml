@@ -1,0 +1,129 @@
+stages:
+  - build
+  - test
+  - scan
+  - containerize
+  - deploy_staging
+  - approve_production
+  - deploy_production
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+build:
+  stage: build
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements.txt
+    - python -m compileall app server.py
+
+test:
+  stage: test
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements-dev.txt
+    - pytest -q
+
+integration_test:
+  stage: test
+  image: python:3.12-slim
+  tags: [docker-ci]
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_USER: inventory
+    POSTGRES_PASSWORD: inventory-password
+    POSTGRES_DB: inventory
+    INVENTORY_DB_HOST: postgres
+    INVENTORY_DB_PORT: "5432"
+    INVENTORY_DB_USER: inventory
+    INVENTORY_DB_PASSWORD: inventory-password
+    INVENTORY_DB_NAME: inventory
+    APP_PORT: "8000"
+  script:
+    - apt-get update -qq && apt-get install -y -qq curl
+    - python -m pip install --no-cache-dir -r requirements.txt
+    - python server.py &
+    - until curl --fail --silent http://127.0.0.1:8000/readyz; do sleep 2; done
+    - >-
+      curl --fail --silent --request POST --header 'Content-Type: application/json'
+      --data '{"title":"CI movie","description":"integration"}' http://127.0.0.1:8000/api/movies
+    - curl --fail --silent http://127.0.0.1:8000/api/movies
+
+scan:
+  stage: scan
+  image: python:3.12-slim
+  tags: [docker-ci]
+  script:
+    - python -m pip install --no-cache-dir -r requirements-dev.txt
+    - bandit -q -r app server.py
+    - pip-audit -r requirements.txt
+
+containerize:
+  stage: containerize
+  image: python:3.12-alpine
+  tags: [docker-local]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli docker-cli
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+  script:
+    - export IMAGE="$STAGING_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
+    - docker build --pull --tag "$IMAGE" .
+    - docker push "$IMAGE"
+    - printf 'STAGING_IMAGE=%s\n' "$IMAGE" > image.env
+  artifacts:
+    reports:
+      dotenv: image.env
+
+deploy_staging:
+  stage: deploy_staging
+  image: alpine:3.21
+  tags: [docker-local]
+  needs: [containerize]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli kubectl
+    - aws eks update-kubeconfig --region "$AWS_REGION" --name "$STAGING_EKS_CLUSTER"
+  script:
+    - kubectl --namespace "$STAGING_KUBERNETES_NAMESPACE" set image deployment/inventory-app inventory-app="$STAGING_IMAGE"
+    - kubectl --namespace "$STAGING_KUBERNETES_NAMESPACE" rollout status deployment/inventory-app --timeout=5m
+  environment:
+    name: staging
+
+approve_production:
+  stage: approve_production
+  tags: [docker-local]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  script: ["true"]
+  when: manual
+  allow_failure: false
+
+deploy_production:
+  stage: deploy_production
+  image: python:3.12-alpine
+  tags: [docker-local]
+  needs: [containerize, approve_production]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CLOUD_DEPLOY_ENABLED == "true"
+  before_script:
+    - apk add --no-cache aws-cli docker-cli kubectl
+    - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+    - aws eks update-kubeconfig --region "$AWS_REGION" --name "$PRODUCTION_EKS_CLUSTER"
+  script:
+    - export PRODUCTION_IMAGE="$PRODUCTION_IMAGE_REPOSITORY:$CI_COMMIT_SHA"
+    - docker pull "$STAGING_IMAGE"
+    - docker tag "$STAGING_IMAGE" "$PRODUCTION_IMAGE"
+    - docker push "$PRODUCTION_IMAGE"
+    - kubectl --namespace "$PRODUCTION_KUBERNETES_NAMESPACE" set image deployment/inventory-app inventory-app="$PRODUCTION_IMAGE"
+    - kubectl --namespace "$PRODUCTION_KUBERNETES_NAMESPACE" rollout status deployment/inventory-app --timeout=5m
+  environment:
+    name: production
