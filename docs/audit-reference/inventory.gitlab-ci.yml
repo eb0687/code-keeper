@@ -36,14 +36,14 @@ integration_test:
     - name: postgres:16-alpine
       alias: postgres
   variables:
-    POSTGRES_USER: inventory
-    POSTGRES_PASSWORD: inventory-password
-    POSTGRES_DB: inventory
+    POSTGRES_USER: ci_inventory
+    POSTGRES_PASSWORD: ci_only_password
+    POSTGRES_DB: ci_inventory
     INVENTORY_DB_HOST: postgres
     INVENTORY_DB_PORT: "5432"
-    INVENTORY_DB_USER: inventory
-    INVENTORY_DB_PASSWORD: inventory-password
-    INVENTORY_DB_NAME: inventory
+    INVENTORY_DB_USER: ci_inventory
+    INVENTORY_DB_PASSWORD: ci_only_password
+    INVENTORY_DB_NAME: ci_inventory
     APP_PORT: "8000"
   script:
     - apt-get update -qq && apt-get install -y -qq curl
