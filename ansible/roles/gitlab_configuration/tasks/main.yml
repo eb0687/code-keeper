@@ -237,6 +237,38 @@
     - item.status == 404
   no_log: true
 
+- name: Enforce merge requests and successful pipelines on main
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects/{{ item.json.id }}"
+    method: PUT
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: json
+    body:
+      only_allow_merge_if_pipeline_succeeds: true
+    status_code: 200
+  loop: "{{ gitlab_configuration_projects_current.results }}"
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Update existing main branch protection
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects/{{ item.item.json.id }}/protected_branches/main"
+    method: PATCH
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: json
+    body:
+      push_access_level: 0
+      merge_access_level: 40
+      allow_force_push: false
+    status_code: 200
+  loop: "{{ gitlab_configuration_protected_branches.results }}"
+  when:
+    - gitlab_api_token | length > 0
+    - item.status == 200
+  no_log: true
+
 - name: Apply protected deployment runner attributes
   ansible.builtin.uri:
     url: "{{ gitlab_external_url }}/api/v4/runners/{{ gitlab_configuration_deployment_runner_id }}"
