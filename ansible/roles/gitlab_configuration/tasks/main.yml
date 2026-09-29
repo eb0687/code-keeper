@@ -1,4 +1,7 @@
 ---
+- name: Install GitLab module dependencies
+  ansible.builtin.import_tasks: dependencies.yml
+
 - name: Configure GitLab application settings
   ansible.builtin.import_tasks: application_settings.yml
 

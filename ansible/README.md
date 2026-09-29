@@ -11,11 +11,14 @@ executors.
 - Ansible on the laptop
 - At least 2 CPU cores, 6 GB RAM, and 30 GB disk available for the VM
 
-Install the Ansible collection before provisioning:
+Install the Ansible collections before provisioning:
 
 ```sh
 ansible-galaxy collection install -r ansible/requirements.yml
 ```
+
+When an administrator API token is present, provisioning also installs the
+`python-gitlab` client in the VM for the GitLab resource modules.
 
 ## Initial Deployment
 

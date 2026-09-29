@@ -1,0 +1,13 @@
+---
+- name: Install pip for GitLab Ansible modules
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+    update_cache: true
+  when: gitlab_api_token | length > 0
+
+- name: Install Python GitLab client
+  ansible.builtin.pip:
+    name: python-gitlab>=4.0.0
+    executable: pip3
+  when: gitlab_api_token | length > 0
