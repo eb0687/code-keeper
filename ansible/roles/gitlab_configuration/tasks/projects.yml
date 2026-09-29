@@ -1,0 +1,45 @@
+---
+- name: Look up Code Keeper projects
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_group_path | urlencode }}%2F{{ item | urlencode }}"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code:
+      - 200
+      - 404
+  loop: "{{ gitlab_projects }}"
+  register: gitlab_configuration_project_lookup
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Create private Code Keeper projects
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: json
+    body:
+      namespace_id: "{{ gitlab_configuration_group.json.id }}"
+      name: "{{ item.item }}"
+      path: "{{ item.item }}"
+      visibility: private
+      initialize_with_readme: "true"
+      default_branch: main
+    status_code: 201
+  loop: "{{ gitlab_configuration_project_lookup.results }}"
+  when:
+    - gitlab_api_token | length > 0
+    - item.status == 404
+  no_log: true
+
+- name: Read Code Keeper project IDs
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/projects/{{ gitlab_group_path | urlencode }}%2F{{ item | urlencode }}"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code: 200
+  loop: "{{ gitlab_projects }}"
+  register: gitlab_configuration_projects_current
+  when: gitlab_api_token | length > 0
+  no_log: true

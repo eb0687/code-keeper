@@ -1,0 +1,39 @@
+---
+- name: Look up the Code Keeper group
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/groups/{{ gitlab_group_path }}"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code:
+      - 200
+      - 404
+  register: gitlab_configuration_group
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Create the private Code Keeper group
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/groups"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: json
+    body:
+      name: "{{ gitlab_group_name }}"
+      path: "{{ gitlab_group_path }}"
+      visibility: private
+    status_code: 201
+  when:
+    - gitlab_api_token | length > 0
+    - gitlab_configuration_group.status == 404
+  no_log: true
+
+- name: Read the Code Keeper group ID
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/groups/{{ gitlab_group_path }}"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code: 200
+  register: gitlab_configuration_group
+  when: gitlab_api_token | length > 0
+  no_log: true

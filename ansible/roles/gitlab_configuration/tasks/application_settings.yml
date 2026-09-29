@@ -1,0 +1,30 @@
+---
+- name: Report GitLab API configuration is pending
+  ansible.builtin.debug:
+    msg: Add GITLAB_API_TOKEN or gitlab_api_token_vault, then provision again to configure GitLab policies and projects.
+  when: gitlab_api_token | length == 0
+
+- name: Configure GitLab authentication and visibility policies
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/application/settings"
+    method: PUT
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: json
+    body:
+      signup_enabled: false
+      password_authentication_enabled_for_web: true
+      password_authentication_enabled_for_git: true
+      password_lowercase_required: true
+      password_uppercase_required: true
+      password_number_required: true
+      password_symbol_required: true
+      password_number_of_required_characters: 4
+      minimum_password_length: "{{ gitlab_minimum_password_length }}"
+      require_two_factor_authentication: "{{ gitlab_require_two_factor_authentication }}"
+      default_project_visibility: private
+      default_group_visibility: private
+      default_snippet_visibility: private
+    status_code: 200
+  when: gitlab_api_token | length > 0
+  no_log: true

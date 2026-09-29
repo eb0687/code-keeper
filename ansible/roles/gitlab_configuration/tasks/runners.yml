@@ -1,0 +1,92 @@
+---
+- name: Look up the protected deployment runner
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/groups/{{ gitlab_configuration_group.json.id }}/runners?type=group_type"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code: 200
+  register: gitlab_configuration_deployment_runners
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Create the protected deployment runner
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/user/runners"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: form-urlencoded
+    body:
+      runner_type: group_type
+      group_id: "{{ gitlab_configuration_group.json.id }}"
+      description: "{{ gitlab_runner_name }}"
+      tag_list: "{{ gitlab_runner_tags }}"
+      run_untagged: "false"
+      locked: "true"
+      access_level: ref_protected
+    status_code: 201
+  register: gitlab_configuration_deployment_runner_creation
+  when:
+    - gitlab_api_token | length > 0
+    - gitlab_configuration_deployment_runners.json | selectattr('description', 'equalto', gitlab_runner_name) | list | length == 0
+  no_log: true
+
+- name: Save the protected deployment runner credentials
+  ansible.builtin.set_fact:
+    gitlab_configuration_runner_token: >-
+      {{ (gitlab_configuration_deployment_runner_creation.json.token
+      if gitlab_configuration_deployment_runner_creation.json.id is defined else '') | default('') }}
+    gitlab_configuration_deployment_runner_id: >-
+      {{ (gitlab_configuration_deployment_runner_creation.json.id
+      if gitlab_configuration_deployment_runner_creation.json.id is defined else
+      (gitlab_configuration_deployment_runners.json
+      | selectattr('description', 'equalto', gitlab_runner_name)
+      | map(attribute='id') | first)) }}
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Look up the merge-request CI runner
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/groups/{{ gitlab_configuration_group.json.id }}/runners?type=group_type"
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    status_code: 200
+  register: gitlab_configuration_ci_runners
+  when: gitlab_api_token | length > 0
+  no_log: true
+
+- name: Create the merge-request CI runner
+  ansible.builtin.uri:
+    url: "{{ gitlab_external_url }}/api/v4/user/runners"
+    method: POST
+    headers:
+      PRIVATE-TOKEN: "{{ gitlab_api_token }}"
+    body_format: form-urlencoded
+    body:
+      runner_type: group_type
+      group_id: "{{ gitlab_configuration_group.json.id }}"
+      description: "{{ gitlab_ci_runner_name }}"
+      tag_list: "{{ gitlab_ci_runner_tags }}"
+      run_untagged: "false"
+      locked: "true"
+      access_level: not_protected
+    status_code: 201
+  register: gitlab_configuration_ci_runner_creation
+  when:
+    - gitlab_api_token | length > 0
+    - gitlab_configuration_ci_runners.json | selectattr('description', 'equalto', gitlab_ci_runner_name) | list | length == 0
+  no_log: true
+
+- name: Save the merge-request CI runner credentials
+  ansible.builtin.set_fact:
+    gitlab_configuration_ci_runner_token: >-
+      {{ (gitlab_configuration_ci_runner_creation.json.token
+      if gitlab_configuration_ci_runner_creation.json.id is defined else '') | default('') }}
+    gitlab_configuration_ci_runner_id: >-
+      {{ (gitlab_configuration_ci_runner_creation.json.id
+      if gitlab_configuration_ci_runner_creation.json.id is defined else
+      (gitlab_configuration_ci_runners.json
+      | selectattr('description', 'equalto', gitlab_ci_runner_name)
+      | map(attribute='id') | first)) }}
+  when: gitlab_api_token | length > 0
+  no_log: true
