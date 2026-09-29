@@ -1,0 +1,61 @@
+---
+- name: Check for an existing registered CI runner
+  ansible.builtin.slurp:
+    src: "{{ gitlab_data_root }}/gitlab-runner-ci/config/config.toml"
+  register: gitlab_runner_ci_config
+  failed_when: false
+  changed_when: false
+
+- name: Register the Docker CI runner
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --network
+      - "{{ gitlab_docker_network }}"
+      - -v
+      - "{{ gitlab_data_root }}/gitlab-runner-ci/config:/etc/gitlab-runner"
+      - gitlab/gitlab-runner:{{ gitlab_runner_version }}
+      - register
+      - --non-interactive
+      - --url
+      - "{{ gitlab_external_url }}"
+      - --token
+      - "{{ gitlab_configuration_ci_runner_token }}"
+      - --executor
+      - docker
+      - --docker-image
+      - alpine:3.21
+      - --docker-network-mode
+      - "{{ gitlab_docker_network }}"
+      - --description
+      - "{{ gitlab_ci_runner_name }}"
+  when:
+    - gitlab_configuration_ci_runner_token | default('') | length > 0
+    - gitlab_runner_ci_config.content is not defined or 'url =' not in (gitlab_runner_ci_config.content | b64decode)
+  changed_when: true
+  no_log: true
+
+- name: Start GitLab CI runner when it has been registered
+  community.docker.docker_container:
+    name: gitlab-runner-ci
+    image: "gitlab/gitlab-runner:{{ gitlab_runner_version }}"
+    pull: missing
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ gitlab_data_root }}/gitlab-runner-ci/config:/etc/gitlab-runner"
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ gitlab_data_root }}/gitlab-runner-ci/cache:/cache"
+    state: started
+  when: gitlab_configuration_ci_runner_token | default('') | length > 0 or gitlab_runner_ci_config.content is defined
+
+- name: Report CI runner registration is pending
+  ansible.builtin.debug:
+    msg: Add GITLAB_API_TOKEN or gitlab_api_token_vault, then provision again to create and register the merge-request CI runner.
+  when: gitlab_configuration_ci_runner_token | default('') | length == 0 and gitlab_runner_ci_config.content is not defined
+
+- name: Report runner registration is pending
+  ansible.builtin.debug:
+    msg: Add GITLAB_API_TOKEN or gitlab_api_token_vault, then provision again to create and register the protected Docker runner.
+  when: gitlab_configuration_runner_token | default('') | length == 0 and gitlab_runner_config.content is not defined

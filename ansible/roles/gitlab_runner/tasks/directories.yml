@@ -1,0 +1,22 @@
+---
+- name: Create persistent GitLab Runner directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ gitlab_data_root }}/gitlab-runner/config"
+    - "{{ gitlab_data_root }}/gitlab-runner/cache"
+
+- name: Create CI runner directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ gitlab_data_root }}/gitlab-runner-ci/config"
+    - "{{ gitlab_data_root }}/gitlab-runner-ci/cache"

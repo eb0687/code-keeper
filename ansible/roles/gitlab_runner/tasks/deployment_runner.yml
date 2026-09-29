@@ -1,0 +1,66 @@
+---
+- name: Check for an existing registered runner
+  ansible.builtin.slurp:
+    src: "{{ gitlab_data_root }}/gitlab-runner/config/config.toml"
+  register: gitlab_runner_config
+  failed_when: false
+  changed_when: false
+
+- name: Register the Docker runner
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - --network
+      - "{{ gitlab_docker_network }}"
+      - -v
+      - "{{ gitlab_data_root }}/gitlab-runner/config:/etc/gitlab-runner"
+      - gitlab/gitlab-runner:{{ gitlab_runner_version }}
+      - register
+      - --non-interactive
+      - --url
+      - "{{ gitlab_external_url }}"
+      - --token
+      - "{{ gitlab_configuration_runner_token }}"
+      - --executor
+      - docker
+      - --docker-image
+      - alpine:3.21
+      - --docker-network-mode
+      - "{{ gitlab_docker_network }}"
+      - --description
+      - "{{ gitlab_runner_name }}"
+  when:
+    - gitlab_configuration_runner_token | default('') | length > 0
+    - gitlab_runner_config.content is not defined or 'url =' not in (gitlab_runner_config.content | b64decode)
+  changed_when: true
+  no_log: true
+
+- name: Configure runner concurrency
+  ansible.builtin.replace:
+    path: "{{ gitlab_data_root }}/gitlab-runner/config/config.toml"
+    regexp: '^concurrent = \d+$'
+    replace: 'concurrent = {{ gitlab_runner_concurrent }}'
+  when: gitlab_configuration_runner_token | default('') | length > 0 or gitlab_runner_config.content is defined
+
+- name: Allow Docker build jobs to use the host Docker socket
+  ansible.builtin.replace:
+    path: "{{ gitlab_data_root }}/gitlab-runner/config/config.toml"
+    regexp: '^(\s*)volumes = \["/cache"\]$'
+    replace: '\1volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]'
+  when: gitlab_configuration_runner_token | default('') | length > 0 or gitlab_runner_config.content is defined
+  notify: Restart GitLab Runner
+
+- name: Start GitLab Runner when it has been registered
+  community.docker.docker_container:
+    name: gitlab-runner
+    image: "gitlab/gitlab-runner:{{ gitlab_runner_version }}"
+    pull: missing
+    restart_policy: unless-stopped
+    volumes:
+      - "{{ gitlab_data_root }}/gitlab-runner/config:/etc/gitlab-runner"
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ gitlab_data_root }}/gitlab-runner/cache:/cache"
+    state: started
+  when: gitlab_configuration_runner_token | default('') | length > 0 or gitlab_runner_config.content is defined
