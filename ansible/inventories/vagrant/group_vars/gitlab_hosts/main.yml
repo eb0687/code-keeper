@@ -12,7 +12,7 @@ gitlab_projects:
   - inventory
   - billing
   - api-gateway
-  - infrastructure
+  - cloud-design
 gitlab_runner_name: code-keeper-docker
 gitlab_runner_tags: docker-local
 gitlab_ci_runner_name: code-keeper-ci
